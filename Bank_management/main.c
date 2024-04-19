@@ -1,35 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <stdbool.h>
 
 #define MAX_ACCOUNTS 100
-#define MAX_NAME_LENGTH 50
-#define MAX_SURNAME_LENGTH 50
-#define MAX_IBAN_LENGTH 30
-#define MAX_PASSWORD_LENGTH 20
+#define DATA_FILE "bank_data.txt"
 
-// Define currencies
-typedef enum {
-    RON,
-    EUR,
-    USD
-} Currency;
+// Define constants for currencies
+#define RON 0
+#define EUR 1
+#define USD 2
 
-// Structure for a person
+// Structure for person
 typedef struct {
-    char name[MAX_NAME_LENGTH];
-    char surname[MAX_SURNAME_LENGTH];
+    char name[50];
+    char surname[50];
 } Person;
 
-// Structure for an account
+// Structure for account
 typedef struct {
-    char iban[MAX_IBAN_LENGTH];
+    char iban[13];
     Person owner;
-    Currency coin;
-    double amount;
-    char password[MAX_PASSWORD_LENGTH];
+    int currency;
+    float amount;
 } Account;
 
 // Global array to store accounts
@@ -37,131 +29,93 @@ Account accounts[MAX_ACCOUNTS];
 int numAccounts = 0;
 
 // Function prototypes
-void login(const char *name, const char *surname);
-void logout();
-void createAccount();
+void readDataFromFile();
+void writeDataToFile();
+void login(char *name, char *surname);
 void editAccount(Account *account);
 void deleteAccount(Account *account);
 void viewAccount(Account *account);
-void performTransaction(Account *source, Account *destination, double amount);
-void generateRandomIBAN(char *iban);
-double convertCurrency(double amount, Currency from, Currency to);
-void saveAccountsToFile(const char *filename);
-void loadAccountsFromFile(const char *filename);
+void createAccount(char *name, char *surname);
 
 int main(int argc, char *argv[]) {
-    // Seed random number generator
-    srand(time(NULL));
+    // Read data from file
+    readDataFromFile();
 
-    if (argc > 1 && strcmp(argv[1], "login") == 0 && argc == 4) {
-        // Command line login
-        login(argv[2], argv[3]);
+    if (argc == 3 && strcmp(argv[1], "admin") == 0 && strcmp(argv[2], "admin") == 0) {
+        // If username and password are "admin", prompt for name and surname and create account
+        char name[50], surname[50];
+        printf("Enter your name: ");
+        scanf("%s", name);
+        printf("Enter your surname: ");
+        scanf("%s", surname);
+        createAccount(name, surname);
+    } else if (argc != 3) {
+        printf("Usage: %s [NAME] [SURNAME]\n", argv[0]);
+        return 1;
     } else {
-        // Interactive menu
-        int choice;
-        do {
-            printf("Welcome to the Bank Management System\n");
-            printf("1. Log In\n2. Create Account\n3. Exit\n");
-            scanf("%d", &choice);
-            loadAccountsFromFile("accounts.txt");
-
-            switch (choice) {
-                case 1:
-                    printf("Enter your name and surname: ");
-                    char name[50], surname[50];
-                    scanf("%s %s", name, surname);
-                    login(name, surname);
-                    break;
-                case 2:
-                    createAccount();
-                    break;
-                case 3:
-                    printf("Exiting...\n");
-                    saveAccountsToFile("accounts.txt");
-                    break;
-                default:
-                    printf("Invalid choice\n");
-            }
-        } while (choice != 3);
+        // Login
+        login(argv[1], argv[2]);
     }
+
+    // Write data back to file
+    writeDataToFile();
 
     return 0;
 }
 
-// Function to save accounts to a CSV file
-// Function to save accounts to a text file
-void saveAccountsToFile(const char *filename) {
-    printf("%s", filename);
-    FILE *file = fopen(filename, "w");
+void readDataFromFile() {
+    FILE *file = fopen(DATA_FILE, "r");
     if (file == NULL) {
-        printf("Error opening file for writing.\n");
-        return;
+        perror("Error opening file");
+        exit(1);
     }
 
-    fprintf(file, "IBAN,Name,Surname,Coin,Amount,Password\n");
-    printf("%d", numAccounts);
-    for (int i = 0; i < numAccounts; i++) {
-        fprintf(file, "%s,%s,%s,%d,%.2f,%s\n", accounts[i].iban, accounts[i].owner.name,
-                accounts[i].owner.surname, (int)accounts[i].coin, accounts[i].amount, accounts[i].password);
-
-    }
-
-    fclose(file);
-    printf("Accounts saved to %s\n", filename);
-}
-
-// Function to load accounts from a CSV file
-void loadAccountsFromFile(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        printf("Error opening file for reading.\n");
-        return;
-    }
-
-    char line[256]; // Assuming a maximum line length of 256 characters
-    fgets(line, sizeof(line), file); // Read and discard the header line
-
-    while (fgets(line, sizeof(line), file)) {
-        char iban[MAX_IBAN_LENGTH], name[MAX_NAME_LENGTH], surname[MAX_SURNAME_LENGTH];
-        int coin;
-        double amount;
-        char password[MAX_PASSWORD_LENGTH];
-
-        scanf(line, "%[^,],%[^,],%[^,],%d,%lf,%s\n", iban, name, surname, &coin, &amount, password);
-
-        strcpy(accounts[numAccounts].iban, iban);
-        strcpy(accounts[numAccounts].owner.name, name);
-        strcpy(accounts[numAccounts].owner.surname, surname);
-        accounts[numAccounts].coin = (Currency)coin;
-        accounts[numAccounts].amount = amount;
-        strcpy(accounts[numAccounts].password, password);
-
+    while (fscanf(file, "%s %s %s %d %f", accounts[numAccounts].iban, accounts[numAccounts].owner.name,
+                  accounts[numAccounts].owner.surname, &accounts[numAccounts].currency,
+                  &accounts[numAccounts].amount) != EOF) {
         numAccounts++;
     }
 
     fclose(file);
-    printf("Accounts loaded from %s\n", filename);
 }
 
-// Function to log in
-void login(const char *name, const char *surname) {
-    char password[MAX_PASSWORD_LENGTH];
+void writeDataToFile() {
+    FILE *file = fopen(DATA_FILE, "w");
+    if (file == NULL) {
+        perror("Error opening file");
+        exit(1);
+    }
 
-    printf("Enter password: ");
-    scanf("%s", password);
-
-    // Search for accounts owned by the person
     for (int i = 0; i < numAccounts; i++) {
-        if (strcmp(accounts[i].owner.name, name) == 0 &&
-            strcmp(accounts[i].owner.surname, surname) == 0 &&
-            strcmp(accounts[i].password, password) == 0) {
-            // Logged in successfully
-            printf("Logged in as %s %s\n", name, surname);
-            int option;
+        fprintf(file, "%s %s %s %d %.2f\n", accounts[i].iban, accounts[i].owner.name,
+                accounts[i].owner.surname, accounts[i].currency, accounts[i].amount);
+    }
+
+    fclose(file);
+}
+
+void login(char *name, char *surname) {
+    // Check if the person exists and gather their accounts
+    int found = 0;
+    for (int i = 0; i < numAccounts; i++) {
+        if (strcmp(accounts[i].owner.name, name) == 0 && strcmp(accounts[i].owner.surname, surname) == 0) {
+            found = 1;
+            int choice;
             do {
-                printf("1. Edit Account\n2. Delete Account\n3. View Account\n4. Perform Transaction\n5. Log Out\n");
-                scanf("%d", &option);
-                switch (option) {
+                printf("Logged in as %s %s\n", name, surname);
+
+                printf("\nMenu:\n");
+                printf("1. Edit Account\n");
+                printf("2. Delete Account\n");
+                printf("3. View Account\n");
+                printf("4. Perform Transaction\n");
+                printf("5. Create Account\n"); // Added option to create account
+                printf("6. Exit\n"); // Adjusted exit option
+                printf("Enter your choice: ");
+                scanf("%d", &choice);
+
+                system("clear");
+                switch (choice) {
                     case 1:
                         editAccount(&accounts[i]);
                         break;
@@ -172,156 +126,121 @@ void login(const char *name, const char *surname) {
                         viewAccount(&accounts[i]);
                         break;
                     case 4:
-                        // Simulate transaction
-                        performTransaction(&accounts[i], &accounts[(i + 1) % numAccounts], 100.0); // Example transaction
+                        // Implement transaction functionality
                         break;
                     case 5:
-                        logout();
+                        createAccount(name, surname); // Call createAccount function
+                        writeDataToFile();
+                        break;
+                    case 6:
+                        printf("Exiting...\n");
                         break;
                     default:
-                        printf("Invalid option\n");
+                        printf("Invalid choice. Please try again.\n");
                 }
-            } while (option != 5);
-            return;
+            } while (choice != 6);
+
+            break;
         }
     }
-    printf("Login failed. Please check your credentials.\n");
+    if (!found) {
+        printf("Person not found.\n");
+    }
 }
 
+void editAccount(Account *account) {
+    int choice;
+    printf("\nEdit Account:\n");
+    printf("1. Modify IBAN\n");
+    printf("2. Modify Amount\n");
+    printf("3. Modify Currency\n");
+    printf("4. Back to Menu\n");
+    printf("Enter your choice: ");
+    scanf("%d", &choice);
 
-// Function to log out
-void logout() {
-    printf("Logged out\n");
-}
-
-// Function to create an account
-void createAccount() {
-    char name[MAX_NAME_LENGTH];
-    char surname[MAX_SURNAME_LENGTH];
-    char password[MAX_PASSWORD_LENGTH];
-    int coinChoice;
-    double amount;
-
-    printf("Enter name: ");
-    scanf("%s", name);
-    printf("Enter surname: ");
-    scanf("%s", surname);
-    printf("Enter password: ");
-    scanf("%s", password);
-    printf("Select currency (1. RON, 2. EUR, 3. USD): ");
-    scanf("%d", &coinChoice);
-    printf("Enter initial amount: ");
-    scanf("%lf", &amount);
-
-    Currency coin;
-    switch (coinChoice) {
+    switch (choice) {
         case 1:
-            coin = RON;
+            printf("Enter new IBAN: ");
+            scanf("%s", account->iban);
+            printf("IBAN modified successfully.\n");
             break;
         case 2:
-            coin = EUR;
+            printf("Enter new amount: ");
+            scanf("%f", &account->amount);
+            printf("Amount modified successfully.\n");
             break;
         case 3:
-            coin = USD;
+            printf("Enter new currency (0 for RON, 1 for EUR, 2 for USD): ");
+            scanf("%d", &account->currency);
+            printf("Currency modified successfully.\n");
+            break;
+        case 4:
+            printf("Returning to Menu...\n");
             break;
         default:
-            printf("Invalid choice, defaulting to RON.\n");
-            coin = RON;
+            printf("Invalid choice. Please try again.\n");
     }
-
-    if (numAccounts >= MAX_ACCOUNTS) {
-        printf("Cannot create more accounts, database is full.\n");
-        return;
-    }
-
-    Account newAccount;
-    generateRandomIBAN(newAccount.iban);
-    strcpy(newAccount.owner.name, name);
-    strcpy(newAccount.owner.surname, surname);
-    strcpy(newAccount.password, password);
-    newAccount.coin = coin;
-    newAccount.amount = amount;
-    accounts[numAccounts++] = newAccount;  // Only increment once
 }
 
-
-// Function to edit an account
-void editAccount(Account *account) {
-    printf("Editing account with IBAN: %s\n", account->iban);
-    // Add editing logic here
-    printf("Enter new amount: ");
-    scanf("%lf", &account->amount);
-}
-
-// Function to delete an account
 void deleteAccount(Account *account) {
-    printf("Deleting account with IBAN: %s\n", account->iban);
-    // Add deletion logic here
-    // For simplicity, we just mark the account as deleted by setting its amount to zero
-    account->amount = 0;
+    // Implement functionality to delete account
+    printf("Account deleted.\n");
 }
 
-// Function to view an account
 void viewAccount(Account *account) {
-    printf("Viewing account with IBAN: %s\n", account->iban);
+    printf("\nAccount Details:\n");
+    printf("IBAN: %s\n", account->iban);
     printf("Owner: %s %s\n", account->owner.name, account->owner.surname);
-    printf("Amount: %.2f %s\n", account->amount, account->coin == RON ? "RON" : account->coin == EUR ? "EUR" : "USD");
+    printf("Currency: %d\n", account->currency);
+    printf("Amount: %.2f\n", account->amount);
 }
 
-// Function to perform a transaction
-void performTransaction(Account *source, Account *destination, double amount) {
-    if (source->amount >= amount) {
-        // Convert currency if necessary
-        double convertedAmount = convertCurrency(amount, source->coin, destination->coin);
-
-        source->amount -= amount;
-        destination->amount += convertedAmount;
-        printf("Transaction successful\n");
-    } else {
-        printf("Insufficient funds for transaction\n");
-    }
+void performTransaction(Account *sourceAccount, Account *destAccount, float amount) {
+    // Implement functionality to perform transaction
 }
 
-// Function to generate a random IBAN
-void generateRandomIBAN(char *iban) {
-    const char *chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    for (int i = 0; i < MAX_IBAN_LENGTH - 1; i++) {
-        iban[i] = chars[rand() % (strlen(chars))];
+char generated_iban_string(){
+    char generated_iban[13];
+
+    for (int i = 0; i < 12; i++) {
+        generated_iban[i] = 'A' + rand() % 26; // Assuming you want uppercase letters
     }
-    iban[MAX_IBAN_LENGTH - 1] = '\0'; // Null-terminate the string
+    generated_iban[12] = '\0';
+    return *generated_iban;
+
 }
 
-// Function to convert between currencies
-double convertCurrency(double amount, Currency from, Currency to) {
-    // Conversion rates are assumed here, you can adjust them as needed
-    const double RON_TO_EUR = 0.21;
-    const double RON_TO_USD = 0.24;
-    const double EUR_TO_RON = 4.80;
-    const double EUR_TO_USD = 1.18;
-    const double USD_TO_RON = 4.16;
-    const double USD_TO_EUR = 0.85;
+void createAccount(char *name, char *surname) {
+    char generated_iban[13]; // Assuming IBAN length is 12 characters plus '\0'
+    int iban_exists;
 
-    switch (from) {
-        case RON:
-            switch (to) {
-                case EUR: return amount * RON_TO_EUR;
-                case USD: return amount * RON_TO_USD;
-                default: return amount;
+    do {
+        iban_exists = 0; // Flag to check if generated IBAN already exists
+        generated_iban_string(generated_iban); // Assuming this function generates a random IBAN
+        
+        // Check if generated IBAN already exists
+        for (int i = 0; i < numAccounts; ++i) {
+            if (strcmp(accounts[i].iban, generated_iban) == 0) {
+                iban_exists = 1; // Set flag if IBAN already exists
+                break;
             }
-        case EUR:
-            switch (to) {
-                case RON: return amount * EUR_TO_RON;
-                case USD: return amount * EUR_TO_USD;
-                default: return amount;
-            }
-        case USD:
-            switch (to) {
-                case RON: return amount * USD_TO_RON;
-                case EUR: return amount * USD_TO_EUR;
-                default: return amount;
-            }
-        default: return amount;
-    }
+        }
+    } while (iban_exists); // Repeat generation if IBAN already exists
 
+    printf("\t%s\n", generated_iban);
 
+    // Copy generated IBAN to the new account
+    strcpy(accounts[numAccounts].iban, generated_iban);
+    // Copy name and surname to the new account
+    strcpy(accounts[numAccounts].owner.name, name);
+    strcpy(accounts[numAccounts].owner.surname, surname);
+
+    // Input currency and initial amount for the new account
+    printf("Enter currency (0 for RON, 1 for EUR, 2 for USD): ");
+    scanf("%d", &accounts[numAccounts].currency);
+    printf("Enter initial amount: ");
+    scanf("%f", &accounts[numAccounts].amount);
+
+    numAccounts++; // Increment number of accounts
+    printf("Account created successfully.\n");
 }
