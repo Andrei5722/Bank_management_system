@@ -1,6 +1,6 @@
 NWLRBBMQBHCD mlem mlem 1 666.00
 NWLRBBMQBHCD mlem mlem 2 799.00
-NWLRBBMQBHCD frincu andrei 2 1231.00
+IUAGISDG frincu andrei 0 4567.00
 NWLRBBMQBHCD lol loll 2 1231.00
 ARZOWKKYHIDD ciprian popa 2 123123.00
 ARZOWKKYHIDD Roxana Popescu 2 1211.00
@@ -8,3 +8,5 @@ ARZOWKKYHIDD florin deanu 1 8888.00
 å–Y ion manu 2 123.00
 ÑV marinu ionut 2 123.00
 ä1V lorel main 2 0.00
+andrei frincu 1 69 0.00
+Andrei Frincu 1 450 0.00
